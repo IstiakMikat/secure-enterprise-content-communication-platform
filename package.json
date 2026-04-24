@@ -1,0 +1,17 @@
+{
+  "name": "secure-enterprise-content-communication-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "seed": "npm run seed --workspace backend",
+    "start": "npm run start --workspace backend",
+    "build": "npm run build --workspace frontend"
+  }
+}
+

@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #e2e8f0;
+  background:
+    radial-gradient(circle at top, rgba(25, 180, 166, 0.18), transparent 30%),
+    linear-gradient(180deg, #09111f 0%, #101b30 100%);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: "Segoe UI", sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.panel {
+  @apply rounded-2xl border border-white/10 bg-slate-900/70 shadow-panel backdrop-blur;
+}
+
+.input {
+  @apply w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-accent;
+}
+
+.button-primary {
+  @apply inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300;
+}
+
+.button-secondary {
+  @apply inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-accent hover:text-accent;
+}
+
