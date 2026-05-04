@@ -34,3 +34,7 @@ exports.markNotificationRead = asyncHandler(async (req, res) => {
   return sendSuccess(res, "Notification marked as read.", result);
 });
 
+exports.getSessions = asyncHandler(async (req, res) => {
+  const result = await userService.getSessions(req.auth.user.id);
+  return sendSuccess(res, "Sessions fetched successfully.", result);
+});

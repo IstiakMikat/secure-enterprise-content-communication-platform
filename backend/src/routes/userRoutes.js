@@ -17,8 +17,8 @@ router.put(
   validateRequest(changePasswordValidator),
   controller.changePassword
 );
+router.get("/sessions", controller.getSessions);
 router.get("/notifications", controller.getNotifications);
 router.patch("/notifications/:id/read", controller.markNotificationRead);
 
 module.exports = router;
-

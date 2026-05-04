@@ -9,11 +9,16 @@ const registerValidator = (req) => {
     "phone",
     "designation",
     "password",
-    "departmentId",
   ];
-  return fields
+  const errors = fields
     .filter((field) => !required(req.body[field]))
     .map((field) => `${field} is required`);
+
+  if (!required(req.body.departmentId) && !required(req.body.department)) {
+    errors.push("department or departmentId is required");
+  }
+
+  return errors;
 };
 
 const loginValidator = (req) =>
@@ -26,5 +31,9 @@ const otpValidator = (req) =>
     .filter((field) => !required(req.body[field]))
     .map((field) => `${field} is required`);
 
-module.exports = { registerValidator, loginValidator, otpValidator };
+const resendOtpValidator = (req) =>
+  ["userId"]
+    .filter((field) => !required(req.body[field]))
+    .map((field) => `${field} is required`);
 
+module.exports = { registerValidator, loginValidator, otpValidator, resendOtpValidator };

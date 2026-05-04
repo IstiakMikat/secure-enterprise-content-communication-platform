@@ -3,6 +3,7 @@ const UserProfileHistory = require("../models/UserProfileHistory");
 const authService = require("./authService");
 const cryptoService = require("./cryptoService");
 const notificationService = require("./notificationService");
+const sessionService = require("./sessionService");
 const { deriveSalt, hashPassword, comparePassword } = require("../crypto/hashing/academicHasher");
 const AppError = require("../utils/AppError");
 
@@ -73,7 +74,10 @@ class UserService {
   markNotificationRead(userId, notificationId) {
     return notificationService.markRead(userId, notificationId);
   }
+
+  async getSessions(userId) {
+    return sessionService.listSessions(userId);
+  }
 }
 
 module.exports = new UserService();
-

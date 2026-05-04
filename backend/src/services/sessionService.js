@@ -53,6 +53,10 @@ class SessionService {
       { revokedAt: new Date() }
     );
   }
+
+  async listSessions(userId) {
+    return Session.find({ userId }).sort({ createdAt: -1 });
+  }
 }
 
 module.exports = new SessionService();

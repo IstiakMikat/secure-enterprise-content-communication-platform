@@ -1,8 +1,25 @@
 # Secure Enterprise Content & Communication Platform
 
-Enterprise-grade MERN application for secure internal communication, encrypted content workflows, employee activity analytics, session monitoring, and key lifecycle administration.
+Secure Enterprise Content & Communication Platform is a MERN monorepo for protected internal communication, encrypted content workflows, employee activity analytics, session monitoring, and key lifecycle administration.
 
-## Monorepo Structure
+## Highlights
+
+- Full-stack monorepo with `backend` and `frontend` workspaces
+- Role-based flows for admin, manager, and employee users
+- OTP-based authentication and account recovery
+- Encrypted content and profile handling with pluggable crypto providers
+- Approval pipeline for secure post publishing and review
+- Security monitoring, audit logging, integrity alerts, and analytics dashboards
+- Academic cryptography layer designed for assignment/demo use
+
+## Tech Stack
+
+- Frontend: React, Vite, React Router, Axios, Tailwind CSS, Recharts
+- Backend: Node.js, Express, Mongoose, Passport, Nodemailer
+- Database: MongoDB
+- Architecture: controllers, services, repositories, validators, middlewares
+
+## Project Structure
 
 ```text
 .
@@ -35,58 +52,58 @@ Enterprise-grade MERN application for secure internal communication, encrypted c
 `-- .env.example
 ```
 
-## Architecture Summary
-
-- `backend` uses layered architecture with controllers, services, repositories, validators, and reusable middleware.
-- `frontend` uses React, React Router, Axios, Context API, Tailwind CSS, and role-aware navigation.
-- `crypto` is intentionally split into:
-  - academic from-scratch implementations for the assignment
-  - adapter/provider abstraction so production crypto can replace it later
-
-## Academic Crypto Notice
-
-This repository includes **educational** implementations of RSA-like arithmetic, ECC-like arithmetic, MAC, and password hashing for assignment purposes. These modules are not suitable for real production deployment. The codebase is designed so audited production crypto providers can replace the academic provider with minimal surface-area changes.
-
 ## Core Features
 
-- Registration, login, OTP verification, password reset, account lockout
-- Session token management with device and IP tracking
-- Role-based access control for admin, manager, and user roles
-- Encrypted profile storage and encrypted post storage
-- Approval workflows for draft, pending, approved, rejected, and archived content
-- Key management lifecycle: generation, assignment, rotation, revocation, expiration
-- Audit logs, integrity alerts, suspicious activity monitoring
-- Company, employee, and security analytics dashboards
-- Modular biometric enrollment and verification flow
+- User registration, login, OTP verification, password reset, and account lockout
+- Session management with device, IP, and activity tracking
+- Role-based access control for admin, manager, and user modules
+- Encrypted post storage and protected profile data handling
+- Draft, pending, approved, rejected, and archived content workflows
+- Key generation, rotation, assignment, revocation, and expiration management
+- Audit logs, biometric logs, suspicious activity checks, and integrity alerts
+- Organization-wide analytics for company, department, employee, and security views
 
-## Quick Start
+## Local Setup
 
-1. Copy `.env.example` to `.env` in the project root and adjust values.
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+1. Copy `.env.example` to `.env` and fill in the required environment variables.
+2. Install workspace dependencies:
+
+```bash
+npm install
+```
+
 3. Start MongoDB locally.
-4. Run the backend:
-   ```bash
-   npm run dev
-   ```
-5. Run the frontend:
-   ```bash
-   npm run dev:frontend
-   ```
-6. Seed demo data:
-   ```bash
-   npm run seed
-   ```
+4. Start the backend server:
 
-## Default Demo Roles
+```bash
+npm run dev
+```
+
+5. Start the frontend app in a separate terminal:
+
+```bash
+npm run dev:frontend
+```
+
+6. Seed demo data when needed:
+
+```bash
+npm run seed
+```
+
+7. Create a production frontend build:
+
+```bash
+npm run build
+```
+
+## Demo Roles
 
 - `admin.secure`
 - `manager.ops`
 - `employee.user`
 
-Seed users, departments, categories, and sample content are created by the backend seed script.
+The seed script creates example users, departments, sample posts, and related demo data.
 
 ## Documentation
 
@@ -96,15 +113,17 @@ Seed users, departments, categories, and sample content are created by the backe
 - [Crypto Layer](./docs/architecture/crypto-layer.md)
 - [API Reference](./docs/api/reference.md)
 
-## Production Replacement Strategy
+## Academic Crypto Notice
 
-The following modules should be replaced before real production use:
+This repository contains educational implementations of RSA-like arithmetic, ECC-like arithmetic, MAC, and password hashing for academic or demonstration purposes. These modules are not suitable for real production deployment.
+
+For production replacement, the key seam is:
+
+- `backend/src/crypto/adapters/cryptoProvider.js`
+
+The academic implementations currently live in:
 
 - `backend/src/crypto/rsa/academicRSA.js`
 - `backend/src/crypto/ecc/academicECC.js`
 - `backend/src/crypto/mac/hmac.js`
 - `backend/src/crypto/hashing/academicHasher.js`
-
-The provider seam is:
-
-- `backend/src/crypto/adapters/cryptoProvider.js`

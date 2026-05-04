@@ -3,6 +3,7 @@ const BiometricLog = require("../models/BiometricLog");
 const User = require("../models/User");
 const cryptoService = require("./cryptoService");
 const AppError = require("../utils/AppError");
+const authService = require("./authService");
 
 const buildFaceVector = (base64Image) => {
   const buffer = Buffer.from(String(base64Image || ""), "base64");
@@ -73,10 +74,25 @@ class BiometricService {
     };
   }
 
-  logs() {
-    return BiometricLog.find().populate("userId").sort({ createdAt: -1 });
+  async logs() {
+    const logs = await BiometricLog.find().populate({
+      path: "userId",
+      populate: ["roleId", "departmentId"],
+    }).sort({ createdAt: -1 });
+
+    return Promise.all(
+      logs.map(async (entry) => ({
+        id: entry._id,
+        user: entry.userId ? await authService.buildUserProfile(entry.userId) : null,
+        action: entry.action,
+        result: entry.result,
+        confidenceScore: entry.confidenceScore,
+        device: entry.device,
+        ipAddress: entry.ipAddress,
+        createdAt: entry.createdAt,
+      }))
+    );
   }
 }
 
 module.exports = new BiometricService();
-

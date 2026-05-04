@@ -73,8 +73,13 @@ const textToScalar = (text) => {
 const scalarToText = (scalar) => `ECC:${scalar.toString()}`;
 
 const generateKeyPair = () => {
-  const privateScalar = BigInt(Math.floor(Math.random() * 40) + 2);
-  const publicPoint = scalarMultiply(privateScalar, curve.g);
+  let privateScalar = 2n;
+  let publicPoint = null;
+
+  while (!publicPoint) {
+    privateScalar = BigInt(Math.floor(Math.random() * 40) + 2);
+    publicPoint = scalarMultiply(privateScalar, curve.g);
+  }
 
   return {
     publicKey: {
@@ -93,14 +98,21 @@ const generateKeyPair = () => {
 
 const encrypt = (plainText, publicKey) => {
   const scalar = textToScalar(plainText);
-  const ephemeral = BigInt(Math.floor(Math.random() * 30) + 2);
   const publicPoint = {
     x: BigInt(publicKey.x),
     y: BigInt(publicKey.y),
   };
-  const shared = scalarMultiply(ephemeral, publicPoint);
-  const payload = mod(scalar + (shared?.x || 1n), curve.p);
-  const hint = scalarMultiply(ephemeral, curve.g);
+  let ephemeral = 2n;
+  let shared = null;
+  let hint = null;
+
+  while (!shared || !hint) {
+    ephemeral = BigInt(Math.floor(Math.random() * 30) + 2);
+    shared = scalarMultiply(ephemeral, publicPoint);
+    hint = scalarMultiply(ephemeral, curve.g);
+  }
+
+  const payload = mod(scalar + shared.x, curve.p);
 
   return JSON.stringify({
     hx: hint.x.toString(),
@@ -124,4 +136,3 @@ module.exports = {
   encrypt,
   decrypt,
 };
-

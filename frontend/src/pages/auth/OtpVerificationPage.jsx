@@ -1,24 +1,110 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { authApi } from "../../api/authApi";
 
 function OtpVerificationPage() {
   const navigate = useNavigate();
+  const { pendingAuth, login, setPendingAuth } = useAuth();
+  const [otpCode, setOtpCode] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const handleVerify = async () => {
+    if (!pendingAuth?.userId) {
+      setError("No pending authentication request found.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+      const result = await authApi.verifyOtp({
+        userId: pendingAuth.userId,
+        otpCode,
+        purpose: pendingAuth.purpose,
+      });
+      login(result.token, result.user);
+      setPendingAuth(null);
+      navigate("/dashboard");
+    } catch (verifyError) {
+      setError(verifyError.response?.data?.message || "OTP verification failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResend = async (otpChannel) => {
+    if (!pendingAuth?.userId) {
+      setError("No pending authentication request found.");
+      return;
+    }
+
+    try {
+      setIsResending(true);
+      setError("");
+      const result = await authApi.resendOtp({
+        userId: pendingAuth.userId,
+        purpose: pendingAuth.purpose,
+        otpChannel,
+      });
+      setPendingAuth({
+        ...pendingAuth,
+        otpDelivery: result.otpDelivery,
+      });
+    } catch (resendError) {
+      setError(resendError.response?.data?.message || "Unable to resend OTP.");
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.3em] text-accent">Two-Step Authentication</p>
       <h2 className="mt-3 text-3xl font-semibold text-white">Verify OTP</h2>
-      <p className="mt-2 text-sm text-slate-400">Enter the one-time code generated for your secure login session.</p>
-      <div className="mt-8 grid grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <input key={index} className="input text-center text-lg" maxLength={1} />
-        ))}
-      </div>
-      <button className="button-primary mt-6 w-full" onClick={() => navigate("/dashboard")}>
-        Verify and Enter Workspace
+      <p className="mt-2 text-sm text-slate-400">
+        Enter the one-time code sent to your {pendingAuth?.otpDelivery?.channel || "selected channel"}.
+        {pendingAuth?.otpDelivery?.destination ? ` Destination: ${pendingAuth.otpDelivery.destination}` : ""}
+      </p>
+      {pendingAuth?.otpDelivery?.providerStatus === "sent" ? (
+        <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          OTP dispatched successfully. Check your {pendingAuth.otpDelivery.channel}.
+        </div>
+      ) : null}
+      {pendingAuth?.otpDelivery?.providerStatus === "failed" ? (
+        <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+          {pendingAuth.otpDelivery.errorMessage || "Delivery failed."} You can resend to email or switch to phone OTP below.
+        </div>
+      ) : null}
+      <input
+        className="input mt-8 text-center text-lg tracking-[0.5em]"
+        maxLength={6}
+        placeholder="000000"
+        value={otpCode}
+        onChange={(event) => setOtpCode(event.target.value)}
+      />
+      {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+      <button className="button-primary mt-6 w-full" onClick={handleVerify}>
+        {isSubmitting ? "Verifying..." : "Verify and Enter Workspace"}
       </button>
+      <div className="mt-6 grid gap-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-sm font-semibold text-white">Need another delivery method?</p>
+          <p className="mt-1 text-xs text-slate-400">If email does not arrive, switch to phone OTP. The backend will generate a fresh code and invalidate the previous one.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <button className="button-secondary w-full" onClick={() => handleResend("email")} disabled={isResending}>
+              {isResending ? "Processing..." : "Resend to Email"}
+            </button>
+            <button className="button-secondary w-full" onClick={() => handleResend("phone")} disabled={isResending}>
+              {isResending ? "Processing..." : "Switch to Phone OTP"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default OtpVerificationPage;
-

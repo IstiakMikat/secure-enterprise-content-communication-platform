@@ -1,8 +1,10 @@
 const User = require("../../models/User");
+const authService = require("../authService");
 
 class UserAdminService {
-  listUsers() {
-    return User.find().populate("roleId departmentId").sort({ createdAt: -1 });
+  async listUsers() {
+    const users = await User.find().populate("roleId departmentId").sort({ createdAt: -1 });
+    return Promise.all(users.map((user) => authService.buildUserProfile(user)));
   }
 
   updateStatus(userId, accountStatus) {
@@ -19,4 +21,3 @@ class UserAdminService {
 }
 
 module.exports = new UserAdminService();
-

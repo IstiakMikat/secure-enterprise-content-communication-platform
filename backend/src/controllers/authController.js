@@ -17,6 +17,11 @@ exports.verifyOtp = asyncHandler(async (req, res) => {
   return sendSuccess(res, "OTP verification successful.", result);
 });
 
+exports.resendOtp = asyncHandler(async (req, res) => {
+  const result = await authService.resendOtp(req.body);
+  return sendSuccess(res, "OTP re-issued successfully.", result);
+});
+
 exports.forgotPassword = asyncHandler(async (req, res) => {
   const result = await authService.forgotPassword(req.body);
   return sendSuccess(res, "Password reset flow initiated.", result);
@@ -40,4 +45,10 @@ exports.logoutAll = asyncHandler(async (req, res) => {
 exports.me = asyncHandler(async (req, res) => {
   const result = await authService.me(req.auth.user);
   return sendSuccess(res, "Authenticated user profile fetched.", result);
+});
+
+exports.googleCallback = asyncHandler(async (req, res) => {
+  const result = await authService.googleLogin(req.user, req.requestContext);
+  // Redirect to frontend with token or handle as needed
+  res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${result.token}`);
 });

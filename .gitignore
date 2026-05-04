@@ -2,8 +2,8 @@ node_modules
 dist
 build
 .env
+.codex/
 .DS_Store
 coverage
 backend/logs
 frontend/.vite
-

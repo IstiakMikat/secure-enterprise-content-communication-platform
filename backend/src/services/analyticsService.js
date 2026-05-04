@@ -8,8 +8,41 @@ const OTPVerification = require("../models/OTPVerification");
 const AuditLog = require("../models/AuditLog");
 const EmployeeAnalytics = require("../models/EmployeeAnalytics");
 const DepartmentAnalytics = require("../models/DepartmentAnalytics");
+const authService = require("./authService");
 
 class AnalyticsService {
+  async getMyOverview(actor) {
+    const [drafts, totalPosts, notifications, sessions] = await Promise.all([
+      Post.countDocuments({ authorId: actor.id, status: "DRAFT" }),
+      Post.countDocuments({ authorId: actor.id }),
+      require("../models/Notification").countDocuments({ userId: actor.id, readAt: null }),
+      Session.countDocuments({
+        userId: actor.id,
+        revokedAt: { $exists: false },
+        expiresAt: { $gt: new Date() },
+      }),
+    ]);
+
+    const postsByStatus = await Post.aggregate([
+      { $match: { authorId: actor.id } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+
+    const recentPosts = await Post.find({ authorId: actor.id })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select("category status updatedAt");
+
+    return {
+      totalPosts,
+      drafts,
+      unreadNotifications: notifications,
+      activeSessions: sessions,
+      postsByStatus,
+      recentPosts,
+    };
+  }
+
   async getCompanyOverview() {
     const [totalUsers, departments, totalPosts, activeSessions, integrityAlerts, keys] =
       await Promise.all([
@@ -46,11 +79,42 @@ class AnalyticsService {
   }
 
   async getEmployeePerformance() {
-    return EmployeeAnalytics.find().populate("userId").sort({ postsCreated: -1 });
+    const entries = await EmployeeAnalytics.find()
+      .populate({
+        path: "userId",
+        populate: ["roleId", "departmentId"],
+      })
+      .sort({ postsCreated: -1 });
+
+    return Promise.all(
+      entries.map(async (entry) => ({
+        id: entry._id,
+        user: entry.userId ? await authService.buildUserProfile(entry.userId) : null,
+        postsCreated: entry.postsCreated,
+        postsApproved: entry.postsApproved,
+        postsRejected: entry.postsRejected,
+        draftCount: entry.draftCount,
+        loginCount: entry.loginCount,
+        lastCalculatedAt: entry.lastCalculatedAt,
+      }))
+    );
   }
 
   async getDepartmentOverview() {
-    return DepartmentAnalytics.find().populate("departmentId").sort({ totalPosts: -1 });
+    const entries = await DepartmentAnalytics.find()
+      .populate("departmentId")
+      .sort({ totalPosts: -1 });
+
+    return entries.map((entry) => ({
+      id: entry._id,
+      department: entry.departmentId?.name,
+      totalPosts: entry.totalPosts,
+      approvedPosts: entry.approvedPosts,
+      pendingPosts: entry.pendingPosts,
+      rejectedPosts: entry.rejectedPosts,
+      activeUsers: entry.activeUsers,
+      lastCalculatedAt: entry.lastCalculatedAt,
+    }));
   }
 
   async getSecurityOverview() {
@@ -74,4 +138,3 @@ class AnalyticsService {
 }
 
 module.exports = new AnalyticsService();
-

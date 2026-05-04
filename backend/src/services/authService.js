@@ -1,5 +1,7 @@
 const env = require("../config/env");
+const mongoose = require("mongoose");
 const Role = require("../models/Role");
+const Department = require("../models/Department");
 const User = require("../models/User");
 const OTPVerification = require("../models/OTPVerification");
 const AppError = require("../utils/AppError");
@@ -7,15 +9,45 @@ const cryptoService = require("./cryptoService");
 const sessionService = require("./sessionService");
 const auditService = require("./auditService");
 const notificationService = require("./notificationService");
+const otpDeliveryService = require("./otpDeliveryService");
 const { deriveSalt, hashPassword, comparePassword, weakAcademicDigest } = require("../crypto/hashing/academicHasher");
 const { ACCOUNT_STATUS, ROLES } = require("../constants");
 
 class AuthService {
+  async resolveDepartment(payload) {
+    if (payload.departmentId && mongoose.Types.ObjectId.isValid(payload.departmentId)) {
+      const department = await Department.findById(payload.departmentId);
+      if (department) {
+        return department;
+      }
+    }
+
+    const departmentLookup = payload.department || payload.departmentId;
+    if (!departmentLookup) {
+      throw new AppError("Department is required", 422);
+    }
+
+    const department = await Department.findOne({
+      $or: [
+        { name: departmentLookup },
+        { code: String(departmentLookup).toUpperCase().replace(/\s+/g, "_") },
+      ],
+    });
+
+    if (!department) {
+      throw new AppError("Department not found", 404);
+    }
+
+    return department;
+  }
+
   async register(payload, context) {
     const role = await Role.findOne({ code: payload.roleCode || ROLES.USER });
     if (!role) {
       throw new AppError("Role not found", 404);
     }
+
+    const department = await this.resolveDepartment(payload);
 
     const passwordSalt = deriveSalt();
     const passwordHash = hashPassword(payload.password, passwordSalt);
@@ -30,6 +62,8 @@ class AuthService {
         cryptoService.encryptField(payload.designation, "RSA", "USER_PROFILE"),
       ]);
 
+    const userKey = await cryptoService.getActiveKey("RSA", "USER_PROFILE");
+
     const user = await User.create({
       employeeId,
       username,
@@ -40,11 +74,22 @@ class AuthService {
       passwordHash,
       passwordSalt,
       roleId: role._id,
-      departmentId: payload.departmentId,
+      departmentId: department._id,
       accountStatus: ACCOUNT_STATUS.PENDING_OTP,
+      publicKeyRef: userKey._id,
     });
 
-    const otp = await this.issueOtp(user._id, "REGISTRATION");
+    const decryptedProfile = await this.buildUserProfile({
+      ...user.toObject(),
+      roleId: role,
+      departmentId: department,
+    });
+    const otp = await this.issueOtp(
+      user._id,
+      "REGISTRATION",
+      decryptedProfile,
+      payload.otpChannel
+    );
 
     await auditService.log({
       actorId: user._id,
@@ -53,12 +98,12 @@ class AuthService {
       resourceId: String(user._id),
       ipAddress: context.ipAddress,
       device: context.device,
-      meta: { departmentId: payload.departmentId },
+      meta: { departmentId: department._id, departmentName: department.name },
     });
 
     return {
       userId: user._id,
-      otpPreview: env.nodeEnv === "production" ? undefined : otp.plainCode,
+      otpDelivery: otp.delivery,
     };
   }
 
@@ -123,10 +168,57 @@ class AuthService {
     matchedUser.accountStatus = ACCOUNT_STATUS.PENDING_OTP;
     await matchedUser.save();
 
-    const otp = await this.issueOtp(matchedUser._id, "LOGIN");
+    const matchedProfile = await this.buildUserProfile(matchedUser);
+    const otp = await this.issueOtp(
+      matchedUser._id,
+      "LOGIN",
+      matchedProfile,
+      payload.otpChannel
+    );
     return {
       userId: matchedUser._id,
-      otpPreview: env.nodeEnv === "production" ? undefined : otp.plainCode,
+      otpDelivery: otp.delivery,
+    };
+  }
+
+  async resendOtp(payload) {
+    const user = await User.findById(payload.userId).populate("roleId departmentId");
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    await OTPVerification.updateMany(
+      {
+        userId: payload.userId,
+        purpose: payload.purpose || "LOGIN",
+        isUsed: false,
+      },
+      { isUsed: true }
+    );
+
+    const profile = await this.buildUserProfile(user);
+    const otp = await this.issueOtp(
+      user._id,
+      payload.purpose || "LOGIN",
+      profile,
+      payload.otpChannel
+    );
+
+    await auditService.log({
+      actorId: user._id,
+      action: "OTP_RESENT",
+      resourceType: "OTP",
+      resourceId: String(user._id),
+      severity: "INFO",
+      meta: {
+        purpose: payload.purpose || "LOGIN",
+        channel: otp.delivery.channel,
+      },
+    });
+
+    return {
+      userId: user._id,
+      otpDelivery: otp.delivery,
     };
   }
 
@@ -206,7 +298,7 @@ class AuthService {
       return { message: "If the account exists, reset instructions were issued." };
     }
 
-    const resetToken = cryptoService.generateRandomToken(16);
+    const resetToken = cryptoService.generateRandomToken(16).slice(0, 6);
     const otpRecord = await OTPVerification.create({
       userId: matchedUser._id,
       purpose: "PASSWORD_RESET",
@@ -214,9 +306,17 @@ class AuthService {
       expiresAt: new Date(Date.now() + env.resetTokenTtlMinutes * 60 * 1000),
     });
 
+    const matchedProfile = await this.buildUserProfile(matchedUser);
+    const delivery = await otpDeliveryService.sendOtp({
+      userProfile: matchedProfile,
+      code: resetToken,
+      purpose: "PASSWORD_RESET",
+      requestedChannel: payload.otpChannel,
+    });
+
     return {
       message: "Reset token issued",
-      resetTokenPreview: env.nodeEnv === "production" ? undefined : resetToken,
+      otpDelivery: delivery,
       referenceId: otpRecord._id,
     };
   }
@@ -269,18 +369,34 @@ class AuthService {
     return { loggedOut: true };
   }
 
-  async issueOtp(userId, purpose) {
+  async issueOtp(userId, purpose, userProfile, requestedChannel) {
     const plainCode = String(Math.floor(100000 + Math.random() * 900000));
     const codeHash = weakAcademicDigest(plainCode);
+    const channel = String(requestedChannel || env.otpDeliveryMode || "email").toLowerCase();
+    let delivery;
+
+    try {
+      delivery = await otpDeliveryService.sendOtp({
+        userProfile,
+        code: plainCode,
+        purpose,
+        requestedChannel,
+      });
+    } catch (error) {
+      delivery = otpDeliveryService.getUnavailableDelivery(channel, userProfile, error);
+    }
 
     await OTPVerification.create({
       userId,
       purpose,
       codeHash,
+      channel: delivery.channel,
+      destination: delivery.destination,
+      providerStatus: delivery.providerStatus,
       expiresAt: new Date(Date.now() + env.otpTtlMinutes * 60 * 1000),
     });
 
-    return { plainCode };
+    return { plainCode, delivery };
   }
 
   async buildUserProfile(userDoc) {
@@ -300,6 +416,41 @@ class AuthService {
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       lastLoginIp: user.lastLoginIp,
+      roleId: user.roleId?._id || user.roleId,
+      departmentId: user.departmentId?._id || user.departmentId,
+    };
+  }
+
+  async googleLogin(user, context) {
+    // Update last login
+    user.lastLoginAt = new Date();
+    user.lastLoginIp = context.ipAddress;
+    user.accountStatus = ACCOUNT_STATUS.ACTIVE; // Ensure active for Google users
+    await user.save();
+
+    const suspicious = false; // For simplicity, assume not suspicious for Google login
+
+    const sessionResult = await sessionService.createSession({
+      userId: user._id,
+      device: context.device,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      isSuspicious: suspicious,
+    });
+
+    await auditService.log({
+      actorId: user._id,
+      action: "GOOGLE_LOGIN",
+      resourceType: "USER",
+      resourceId: String(user._id),
+      ipAddress: context.ipAddress,
+      device: context.device,
+    });
+
+    return {
+      token: sessionResult.token,
+      user: await this.buildUserProfile(user),
+      session: sessionResult.session,
     };
   }
 }

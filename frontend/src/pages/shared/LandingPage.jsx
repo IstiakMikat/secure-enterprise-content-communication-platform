@@ -1,6 +1,32 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 function LandingPage() {
+  const { user, isAuthenticated, isBootstrapping } = useAuth();
+
+  if (isBootstrapping) {
+    return null;
+  }
+
+  const accessButtonText = isAuthenticated
+    ? user?.role === "ADMIN"
+      ? "Go to Admin Portal"
+      : "Go to Employee Dashboard"
+    : "Access Platform";
+  const accessButtonLink = isAuthenticated
+    ? user?.role === "ADMIN"
+      ? "/admin"
+      : "/dashboard"
+    : "/login";
+
+  const showRegisterButton = !isAuthenticated || user?.role === "ADMIN";
+  const registerButtonText = isAuthenticated
+    ? user?.role === "ADMIN"
+      ? "Register Employee"
+      : "Request Employee Registration"
+    : "Register Employee";
+  const registerButtonLink = "/register";
+
   return (
     <div className="mx-auto flex min-h-screen max-w-7xl items-center px-6 py-12">
       <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -13,12 +39,14 @@ function LandingPage() {
             Purpose-built for fintech and telecom operations with role-based access, session monitoring, key management, and activity analytics.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <Link className="button-primary" to="/login">
-              Access Platform
+            <Link className="button-primary" to={accessButtonLink}>
+              {accessButtonText}
             </Link>
-            <Link className="button-secondary" to="/register">
-              Register Employee
-            </Link>
+            {showRegisterButton ? (
+              <Link className="button-secondary" to={registerButtonLink}>
+                {registerButtonText}
+              </Link>
+            ) : null}
           </div>
         </div>
         <div className="grid gap-4">

@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
     designation: encryptedFieldSchema,
     passwordHash: { type: String, required: true },
     passwordSalt: { type: String, required: true },
+    googleId: { type: String, unique: true, sparse: true }, // For Google OAuth
     roleId: { type: mongoose.Schema.Types.ObjectId, ref: "Role", required: true },
     departmentId: {
       type: mongoose.Schema.Types.ObjectId,

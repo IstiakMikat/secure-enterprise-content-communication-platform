@@ -6,6 +6,7 @@ const allowRoles = require("../middlewares/rbacMiddleware");
 const router = express.Router();
 
 router.use(authMiddleware);
+router.get("/my-overview", controller.myOverview);
 router.get("/company-overview", allowRoles("ADMIN", "MANAGER"), controller.companyOverview);
 router.get(
   "/employee-performance",
@@ -20,4 +21,3 @@ router.get(
 router.get("/security-overview", allowRoles("ADMIN"), controller.securityOverview);
 
 module.exports = router;
-

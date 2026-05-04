@@ -9,6 +9,7 @@ import RegisterPage from "../pages/auth/RegisterPage";
 import OtpVerificationPage from "../pages/auth/OtpVerificationPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
+import AuthCallbackPage from "../pages/auth/AuthCallbackPage";
 import DashboardPage from "../pages/user/DashboardPage";
 import ProfilePage from "../pages/user/ProfilePage";
 import EditProfilePage from "../pages/user/EditProfilePage";
@@ -44,6 +45,7 @@ function AppRouter() {
         <Route path="/verify-otp" element={<OtpVerificationPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
