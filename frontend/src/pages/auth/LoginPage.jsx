@@ -12,19 +12,28 @@ function LoginPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!form.email.trim() || !form.password) {
+      setError("Email and password are required.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError("");
-      const result = await authApi.login(form);
+      const result = await authApi.login({
+        ...form,
+        email: form.email.trim(),
+      });
       setPendingAuth({
         userId: result.userId,
         purpose: "LOGIN",
         otpDelivery: result.otpDelivery,
-        email: form.email,
+        email: form.email.trim(),
       });
       navigate("/verify-otp");
     } catch (submitError) {
-      setError(submitError.response?.data?.message || "Login failed.");
+      setError(submitError.message || "Login failed.");
     } finally {
       setIsSubmitting(false);
     }
@@ -63,12 +72,12 @@ function LoginPage() {
           <option value="phone">Send code to phone</option>
         </select>
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-        <button className="button-primary w-full" type="submit">
+        <button className="button-primary w-full" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Authenticating..." : "Continue to OTP"}
         </button>
       </form>
       <div className="mt-4 rounded-xl border border-accent/20 bg-accent/10 p-4 text-xs text-slate-300">
-        Demo seeded account: <span className="font-semibold text-white">admin@enterprise.local</span> / <span className="font-semibold text-white">Admin12345!</span>
+        Demo seeded account after running the seed script: <span className="font-semibold text-white">admin@enterprise.local</span> / <span className="font-semibold text-white">Admin12345!</span>
       </div>
       <div className="mt-6 flex justify-between text-sm text-slate-400">
         <Link to="/forgot-password">Forgot password</Link>

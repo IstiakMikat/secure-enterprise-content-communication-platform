@@ -36,19 +36,6 @@ const modInverse = (a, m) => {
   return ((oldS % m) + m) % m;
 };
 
-const encodeTextToBigInt = (text) =>
-  BigInt(
-    `0x${Buffer.from(String(text ?? ""), "utf8").toString("hex") || "00"}`
-  );
-
-const decodeBigIntToText = (value) => {
-  let hex = value.toString(16);
-  if (hex.length % 2) {
-    hex = `0${hex}`;
-  }
-  return Buffer.from(hex, "hex").toString("utf8").replace(/\0+$/g, "");
-};
-
 const generateKeyPair = () => {
   const p = smallPrimes[Math.floor(Math.random() * smallPrimes.length)];
   let q = smallPrimes[Math.floor(Math.random() * smallPrimes.length)];
@@ -59,10 +46,11 @@ const generateKeyPair = () => {
 
   const n = p * q;
   const phi = (p - 1n) * (q - 1n);
-  let e = 65537n;
+  const candidateExponents = [65537n, 257n, 17n, 5n, 3n];
+  const e = candidateExponents.find((candidate) => gcd(candidate, phi) === 1n);
 
-  if (gcd(e, phi) !== 1n) {
-    e = 17n;
+  if (!e) {
+    throw new Error("Unable to generate a valid RSA exponent");
   }
 
   const d = modInverse(e, phi);
@@ -75,18 +63,26 @@ const generateKeyPair = () => {
 };
 
 const encrypt = (plainText, publicKey) => {
-  const message = encodeTextToBigInt(plainText);
   const n = BigInt(publicKey.n);
   const e = BigInt(publicKey.e);
-  const encrypted = modPow(message % n, e, n);
-  return encrypted.toString();
+  const bytes = Buffer.from(String(plainText ?? ""), "utf8");
+
+  return Array.from(bytes, (byte) => modPow(BigInt(byte), e, n).toString())
+    .join(".");
 };
 
 const decrypt = (cipherText, privateKey) => {
-  const encrypted = BigInt(cipherText);
   const n = BigInt(privateKey.n);
   const d = BigInt(privateKey.d);
-  return decodeBigIntToText(modPow(encrypted, d, n));
+  const segments = String(cipherText || "")
+    .split(".")
+    .filter(Boolean);
+
+  const bytes = segments.map((segment) =>
+    Number(modPow(BigInt(segment), d, n))
+  );
+
+  return Buffer.from(bytes).toString("utf8");
 };
 
 module.exports = {
@@ -94,4 +90,3 @@ module.exports = {
   encrypt,
   decrypt,
 };
-

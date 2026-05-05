@@ -50,12 +50,12 @@ class OtpDeliveryService {
   async sendEmailOtp({ toEmail, code, purpose }) {
     const transporter = this.getMailTransporter();
     if (!transporter) {
-      // For demo purposes, log the OTP code
       console.log(`DEMO OTP for ${purpose}: ${code} sent to ${toEmail}`);
       return {
         channel: "email",
         destination: this.getMaskedEmail(toEmail),
         providerStatus: "demo_logged",
+        previewCode: code,
       };
     }
 
@@ -104,6 +104,7 @@ class OtpDeliveryService {
       channel: "phone",
       destination: this.getMaskedPhone(toPhone),
       providerStatus: "demo_logged",
+      previewCode: code,
     };
   }
 

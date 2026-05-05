@@ -14,6 +14,73 @@ const { deriveSalt, hashPassword, comparePassword, weakAcademicDigest } = requir
 const { ACCOUNT_STATUS, ROLES } = require("../constants");
 
 class AuthService {
+  normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  normalizeText(value) {
+    return String(value || "").trim();
+  }
+
+  normalizePhone(value) {
+    return String(value || "").trim();
+  }
+
+  async findUserByEmail(email) {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    const users = await User.find().populate("roleId departmentId");
+
+    for (const candidate of users) {
+      const decryptedEmail = await cryptoService.decryptField(
+        candidate.email,
+        "USER_PROFILE"
+      );
+
+      if (this.normalizeEmail(decryptedEmail) === normalizedEmail) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  async ensureRegistrationUniqueness(payload) {
+    const normalizedEmployeeId = this.normalizeText(payload.employeeId);
+    const normalizedUsername = this.normalizeText(payload.username).toLowerCase();
+    const normalizedEmail = this.normalizeEmail(payload.email);
+    const normalizedPhone = this.normalizePhone(payload.phone);
+    const users = await User.find();
+
+    for (const candidate of users) {
+      const [employeeId, username, email, phone] = await Promise.all([
+        cryptoService.decryptField(candidate.employeeId, "USER_PROFILE"),
+        cryptoService.decryptField(candidate.username, "USER_PROFILE"),
+        cryptoService.decryptField(candidate.email, "USER_PROFILE"),
+        cryptoService.decryptField(candidate.phone, "USER_PROFILE"),
+      ]);
+
+      if (this.normalizeText(employeeId) === normalizedEmployeeId) {
+        throw new AppError("Employee ID already exists", 409);
+      }
+
+      if (this.normalizeText(username).toLowerCase() === normalizedUsername) {
+        throw new AppError("Username already exists", 409);
+      }
+
+      if (this.normalizeEmail(email) === normalizedEmail) {
+        throw new AppError("Email already exists", 409);
+      }
+
+      if (this.normalizePhone(phone) === normalizedPhone) {
+        throw new AppError("Phone number already exists", 409);
+      }
+    }
+  }
+
   async resolveDepartment(payload) {
     if (payload.departmentId && mongoose.Types.ObjectId.isValid(payload.departmentId)) {
       const department = await Department.findById(payload.departmentId);
@@ -42,6 +109,8 @@ class AuthService {
   }
 
   async register(payload, context) {
+    await this.ensureRegistrationUniqueness(payload);
+
     const role = await Role.findOne({ code: payload.roleCode || ROLES.USER });
     if (!role) {
       throw new AppError("Role not found", 404);
@@ -52,14 +121,23 @@ class AuthService {
     const passwordSalt = deriveSalt();
     const passwordHash = hashPassword(payload.password, passwordSalt);
 
+    const sanitizedPayload = {
+      employeeId: this.normalizeText(payload.employeeId),
+      username: this.normalizeText(payload.username),
+      fullName: this.normalizeText(payload.fullName),
+      email: this.normalizeEmail(payload.email),
+      phone: this.normalizePhone(payload.phone),
+      designation: this.normalizeText(payload.designation),
+    };
+
     const [employeeId, username, fullName, email, phone, designation] =
       await Promise.all([
-        cryptoService.encryptField(payload.employeeId, "RSA", "USER_PROFILE"),
-        cryptoService.encryptField(payload.username, "RSA", "USER_PROFILE"),
-        cryptoService.encryptField(payload.fullName, "RSA", "USER_PROFILE"),
-        cryptoService.encryptField(payload.email, "RSA", "USER_PROFILE"),
-        cryptoService.encryptField(payload.phone, "RSA", "USER_PROFILE"),
-        cryptoService.encryptField(payload.designation, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.employeeId, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.username, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.fullName, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.email, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.phone, "RSA", "USER_PROFILE"),
+        cryptoService.encryptField(sanitizedPayload.designation, "RSA", "USER_PROFILE"),
       ]);
 
     const userKey = await cryptoService.getActiveKey("RSA", "USER_PROFILE");
@@ -108,19 +186,7 @@ class AuthService {
   }
 
   async login(payload, context) {
-    const users = await User.find().populate("roleId departmentId");
-    let matchedUser = null;
-
-    for (const candidate of users) {
-      const decryptedEmail = await cryptoService.decryptField(
-        candidate.email,
-        "USER_PROFILE"
-      );
-      if (decryptedEmail === payload.email) {
-        matchedUser = candidate;
-        break;
-      }
-    }
+    const matchedUser = await this.findUserByEmail(payload.email);
 
     if (!matchedUser) {
       throw new AppError("Invalid credentials", 401);
@@ -283,16 +349,7 @@ class AuthService {
   }
 
   async forgotPassword(payload) {
-    const users = await User.find();
-    let matchedUser = null;
-
-    for (const candidate of users) {
-      const email = await cryptoService.decryptField(candidate.email, "USER_PROFILE");
-      if (email === payload.email) {
-        matchedUser = candidate;
-        break;
-      }
-    }
+    const matchedUser = await this.findUserByEmail(payload.email);
 
     if (!matchedUser) {
       return { message: "If the account exists, reset instructions were issued." };

@@ -21,6 +21,22 @@ const env = {
   defaultEccCurve: process.env.DEFAULT_ECC_CURVE || "secp256k1-demo",
   enableBiometricChallenge:
     process.env.ENABLE_BIOMETRIC_CHALLENGE !== "false",
+  otpDeliveryMode: process.env.OTP_DELIVERY_MODE || "email",
+  otpFallbackToPreview: process.env.OTP_FALLBACK_TO_PREVIEW !== "false",
+  smsProvider: process.env.SMS_PROVIDER || "",
+  smtp: {
+    host: process.env.SMTP_HOST || "",
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === "true",
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.SMTP_FROM || "no-reply@enterprise.local",
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || "",
+    authToken: process.env.TWILIO_AUTH_TOKEN || "",
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || "",
+  },
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
 };

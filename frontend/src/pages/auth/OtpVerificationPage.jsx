@@ -29,7 +29,7 @@ function OtpVerificationPage() {
       setPendingAuth(null);
       navigate("/dashboard");
     } catch (verifyError) {
-      setError(verifyError.response?.data?.message || "OTP verification failed.");
+      setError(verifyError.message || "OTP verification failed.");
     } finally {
       setIsSubmitting(false);
     }
@@ -54,7 +54,7 @@ function OtpVerificationPage() {
         otpDelivery: result.otpDelivery,
       });
     } catch (resendError) {
-      setError(resendError.response?.data?.message || "Unable to resend OTP.");
+      setError(resendError.message || "Unable to resend OTP.");
     } finally {
       setIsResending(false);
     }
@@ -73,6 +73,12 @@ function OtpVerificationPage() {
           OTP dispatched successfully. Check your {pendingAuth.otpDelivery.channel}.
         </div>
       ) : null}
+      {["demo_logged", "preview"].includes(pendingAuth?.otpDelivery?.providerStatus) ? (
+        <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+          Delivery is running in demo mode for local development.
+          {pendingAuth?.otpDelivery?.previewCode ? ` Use OTP: ${pendingAuth.otpDelivery.previewCode}` : " Check the backend terminal for the OTP code."}
+        </div>
+      ) : null}
       {pendingAuth?.otpDelivery?.providerStatus === "failed" ? (
         <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
           {pendingAuth.otpDelivery.errorMessage || "Delivery failed."} You can resend to email or switch to phone OTP below.
@@ -86,7 +92,7 @@ function OtpVerificationPage() {
         onChange={(event) => setOtpCode(event.target.value)}
       />
       {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
-      <button className="button-primary mt-6 w-full" onClick={handleVerify}>
+      <button className="button-primary mt-6 w-full" onClick={handleVerify} disabled={isSubmitting}>
         {isSubmitting ? "Verifying..." : "Verify and Enter Workspace"}
       </button>
       <div className="mt-6 grid gap-4">
