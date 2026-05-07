@@ -1,9 +1,7 @@
-const crypto = require("crypto");
 const provider = require("../crypto/adapters/cryptoProvider");
 const CryptoKey = require("../models/CryptoKey");
 const AcademicKeyManager = require("../crypto/keyManagement/academicKeyManager");
 const AppError = require("../utils/AppError");
-const { createMac } = require("../crypto/mac/hmac");
 const { fingerprint } = require("../crypto/hashing/academicHasher");
 
 class CryptoService {
@@ -32,7 +30,11 @@ class CryptoService {
   async encryptField(plainText, algorithm, purpose) {
     const key = await this.getActiveKey(algorithm, purpose);
     const ciphertext = provider.encrypt(algorithm, plainText, key.publicKeyData);
-    const mac = provider.protectIntegrity(ciphertext);
+    const mac = provider.protectIntegrity(
+      ciphertext,
+      algorithm,
+      key.encryptedPrivateKeyData
+    );
 
     return {
       algorithm,
@@ -58,7 +60,9 @@ class CryptoService {
 
     const isValid = provider.verifyIntegrity(
       encryptedField.ciphertext,
-      encryptedField.mac
+      encryptedField.mac,
+      encryptedField.algorithm,
+      key.publicKeyData
     );
 
     if (!isValid) {
@@ -72,16 +76,32 @@ class CryptoService {
     );
   }
 
-  createRecordMac(payload) {
-    return createMac(JSON.stringify(payload), "record-mac");
+  async createRecordMac(payload) {
+    const key = await this.getActiveKey("RSA", "POST_INTEGRITY");
+    return provider.protectIntegrity(
+      JSON.stringify(payload),
+      "RSA",
+      key.encryptedPrivateKeyData
+    );
   }
 
-  verifyRecordMac(payload, mac) {
-    return createMac(JSON.stringify(payload), "record-mac") === mac;
+  async verifyRecordMac(payload, mac) {
+    const key = await this.getActiveKey("RSA", "POST_INTEGRITY");
+    return provider.verifyIntegrity(
+      JSON.stringify(payload),
+      mac,
+      "RSA",
+      key.publicKeyData
+    );
   }
 
   generateRandomToken(size = 32) {
-    return crypto.randomBytes(size).toString("hex");
+    const alphabet = "0123456789abcdef";
+    let token = "";
+    for (let index = 0; index < size * 2; index += 1) {
+      token += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return token;
   }
 
   fingerprint(value) {

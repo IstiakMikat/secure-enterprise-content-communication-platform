@@ -7,10 +7,18 @@ const AppError = require("../utils/AppError");
 const { INTEGRITY_STATUS, POST_STATUS, ROLES } = require("../constants");
 
 class PostService {
+  ensureMutationPermission(post, actor) {
+    const isAdmin = actor.role === ROLES.ADMIN;
+    const isOwner = String(post.authorId) === String(actor.id);
+    if (!isAdmin && !isOwner) {
+      throw new AppError("Not authorized to modify this post", 403);
+    }
+  }
+
   async createPost(author, payload) {
     const title = await cryptoService.encryptField(payload.title, "ECC", "POST_CONTENT");
     const body = await cryptoService.encryptField(payload.body, "ECC", "POST_CONTENT");
-    const integrityMac = cryptoService.createRecordMac({
+    const integrityMac = await cryptoService.createRecordMac({
       title: title.ciphertext,
       body: body.ciphertext,
       category: payload.category,
@@ -100,10 +108,11 @@ class PostService {
     if (!post) {
       throw new AppError("Post not found", 404);
     }
+    this.ensureMutationPermission(post, actor);
 
     const title = await cryptoService.encryptField(payload.title, "ECC", "POST_CONTENT");
     const body = await cryptoService.encryptField(payload.body, "ECC", "POST_CONTENT");
-    const integrityMac = cryptoService.createRecordMac({
+    const integrityMac = await cryptoService.createRecordMac({
       title: title.ciphertext,
       body: body.ciphertext,
       category: payload.category || post.category,
@@ -134,21 +143,30 @@ class PostService {
     return this.getPostById(postId, actor);
   }
 
-  async archivePost(postId) {
-    return Post.findByIdAndUpdate(
-      postId,
-      { status: POST_STATUS.ARCHIVED },
-      { new: true }
-    );
+  async archivePost(postId, actor) {
+    const post = await Post.findById(postId);
+    if (!post) {
+      throw new AppError("Post not found", 404);
+    }
+    this.ensureMutationPermission(post, actor);
+    post.status = POST_STATUS.ARCHIVED;
+    await post.save();
+    return this.getPostById(postId, actor);
   }
 
-  async deletePost(postId) {
-    return Post.findByIdAndDelete(postId);
+  async deletePost(postId, actor) {
+    const post = await Post.findById(postId);
+    if (!post) {
+      throw new AppError("Post not found", 404);
+    }
+    this.ensureMutationPermission(post, actor);
+    await Post.findByIdAndDelete(postId);
+    return { deleted: true };
   }
 
   async mapDecryptedPost(post) {
     const postObj = post.toObject ? post.toObject() : post;
-    const integrityValid = cryptoService.verifyRecordMac(
+    const integrityValid = await cryptoService.verifyRecordMac(
       {
         title: postObj.title.ciphertext,
         body: postObj.body.ciphertext,

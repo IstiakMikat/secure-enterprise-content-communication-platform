@@ -29,6 +29,7 @@ function LoginPage() {
         userId: result.userId,
         purpose: "LOGIN",
         otpDelivery: result.otpDelivery,
+        otpMeta: result.otpMeta,
         email: form.email.trim(),
       });
       navigate("/verify-otp");

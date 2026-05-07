@@ -9,6 +9,8 @@ const otpVerificationSchema = new mongoose.Schema(
     destination: String,
     providerStatus: { type: String, default: "queued" },
     expiresAt: { type: Date, required: true },
+    resendAvailableAt: Date,
+    lockedUntil: Date,
     attempts: { type: Number, default: 0 },
     isUsed: { type: Boolean, default: false },
   },

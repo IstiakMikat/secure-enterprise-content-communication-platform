@@ -5,18 +5,30 @@ import { useAuth } from "../../context/AuthContext";
 function AuthCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { setPendingAuth } = useAuth();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    if (token) {
-      // For Google auth, we just set the token and let the context bootstrap fetch the user
-      login(token);
-      navigate("/dashboard");
+    const userId = searchParams.get("userId");
+    if (userId) {
+      setPendingAuth({
+        userId,
+        purpose: searchParams.get("purpose") || "GOOGLE_LOGIN",
+        otpDelivery: {
+          channel: searchParams.get("channel") || "email",
+          destination: searchParams.get("destination") || "",
+          providerStatus: searchParams.get("providerStatus") || "queued",
+          previewCode: searchParams.get("previewCode") || "",
+        },
+        otpMeta: {
+          expiresAt: searchParams.get("expiresAt") || "",
+          resendAvailableAt: searchParams.get("resendAvailableAt") || "",
+        },
+      });
+      navigate("/verify-otp");
     } else {
       navigate("/login");
     }
-  }, [searchParams, login, navigate]);
+  }, [searchParams, setPendingAuth, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

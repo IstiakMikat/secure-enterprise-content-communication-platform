@@ -62,6 +62,7 @@ function RegisterPage() {
         userId: result.userId,
         purpose: "REGISTRATION",
         otpDelivery: result.otpDelivery,
+        otpMeta: result.otpMeta,
         email: form.email.trim(),
       });
       navigate("/verify-otp");

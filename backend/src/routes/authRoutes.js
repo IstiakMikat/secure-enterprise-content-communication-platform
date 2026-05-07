@@ -3,6 +3,7 @@ const passport = require("../config/passport");
 const controller = require("../controllers/authController");
 const validateRequest = require("../middlewares/validateRequest");
 const authMiddleware = require("../middlewares/authMiddleware");
+const env = require("../config/env");
 const {
   registerValidator,
   loginValidator,
@@ -23,7 +24,9 @@ router.post("/logout-all", authMiddleware, controller.logoutAll);
 router.get("/me", authMiddleware, controller.me);
 
 // Google OAuth routes
-router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
-router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/login" }), controller.googleCallback);
+if (env.googleClientId && env.googleClientSecret) {
+  router.get("/google", passport.authenticate("google", { scope: ["profile", "email"], session: false }));
+  router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/login", session: false }), controller.googleCallback);
+}
 
 module.exports = router;

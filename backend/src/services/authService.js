@@ -14,6 +14,16 @@ const { deriveSalt, hashPassword, comparePassword, weakAcademicDigest } = requir
 const { ACCOUNT_STATUS, ROLES } = require("../constants");
 
 class AuthService {
+  assertOtpWithinAttemptLimit(otpRecord) {
+    const maxAttempts = Math.max(1, Number(env.otpMaxAttempts || 5));
+    if (otpRecord.attempts >= maxAttempts) {
+      throw new AppError(
+        `OTP verification limit reached. Request a new code after ${env.otpLockMinutes} minutes.`,
+        429
+      );
+    }
+  }
+
   normalizeEmail(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -49,62 +59,37 @@ class AuthService {
   }
 
   async ensureRegistrationUniqueness(payload) {
-    const normalizedEmployeeId = this.normalizeText(payload.employeeId);
-    const normalizedUsername = this.normalizeText(payload.username).toLowerCase();
     const normalizedEmail = this.normalizeEmail(payload.email);
-    const normalizedPhone = this.normalizePhone(payload.phone);
     const users = await User.find();
 
     for (const candidate of users) {
-      const [employeeId, username, email, phone] = await Promise.all([
-        cryptoService.decryptField(candidate.employeeId, "USER_PROFILE"),
-        cryptoService.decryptField(candidate.username, "USER_PROFILE"),
-        cryptoService.decryptField(candidate.email, "USER_PROFILE"),
-        cryptoService.decryptField(candidate.phone, "USER_PROFILE"),
-      ]);
+      const decryptedEmail = await cryptoService.decryptField(
+        candidate.email,
+        "USER_PROFILE"
+      );
 
-      if (this.normalizeText(employeeId) === normalizedEmployeeId) {
-        throw new AppError("Employee ID already exists", 409);
-      }
-
-      if (this.normalizeText(username).toLowerCase() === normalizedUsername) {
-        throw new AppError("Username already exists", 409);
-      }
-
-      if (this.normalizeEmail(email) === normalizedEmail) {
+      if (this.normalizeEmail(decryptedEmail) === normalizedEmail) {
         throw new AppError("Email already exists", 409);
-      }
-
-      if (this.normalizePhone(phone) === normalizedPhone) {
-        throw new AppError("Phone number already exists", 409);
       }
     }
   }
 
   async resolveDepartment(payload) {
-    if (payload.departmentId && mongoose.Types.ObjectId.isValid(payload.departmentId)) {
-      const department = await Department.findById(payload.departmentId);
-      if (department) {
-        return department;
-      }
-    }
-
-    const departmentLookup = payload.department || payload.departmentId;
-    if (!departmentLookup) {
-      throw new AppError("Department is required", 422);
-    }
-
-    const department = await Department.findOne({
-      $or: [
-        { name: departmentLookup },
-        { code: String(departmentLookup).toUpperCase().replace(/\s+/g, "_") },
-      ],
-    });
-
+    // For simplified registration, default to a general department
+    const Department = require("../models/Department");
+    
+    // Try to find a default department or create one
+    let department = await Department.findOne({ code: "GENERAL" });
+    
     if (!department) {
-      throw new AppError("Department not found", 404);
+      // Create a default department if none exists
+      department = await Department.create({
+        name: "General",
+        code: "GENERAL",
+        description: "Default department for new users"
+      });
     }
-
+    
     return department;
   }
 
@@ -122,12 +107,12 @@ class AuthService {
     const passwordHash = hashPassword(payload.password, passwordSalt);
 
     const sanitizedPayload = {
-      employeeId: this.normalizeText(payload.employeeId),
-      username: this.normalizeText(payload.username),
-      fullName: this.normalizeText(payload.fullName),
+      employeeId: this.normalizeText(payload.employeeId) || `EMP${Date.now()}`,
+      username: this.normalizeText(payload.username) || payload.email.split('@')[0],
+      fullName: this.normalizeText(payload.fullName) || payload.email.split('@')[0].charAt(0).toUpperCase() + payload.email.split('@')[0].slice(1),
       email: this.normalizeEmail(payload.email),
-      phone: this.normalizePhone(payload.phone),
-      designation: this.normalizeText(payload.designation),
+      phone: this.normalizePhone(payload.phone) || "0000000000",
+      designation: this.normalizeText(payload.designation) || "Team Member",
     };
 
     const [employeeId, username, fullName, email, phone, designation] =
@@ -182,6 +167,7 @@ class AuthService {
     return {
       userId: user._id,
       otpDelivery: otp.delivery,
+      otpMeta: otp.meta,
     };
   }
 
@@ -244,6 +230,7 @@ class AuthService {
     return {
       userId: matchedUser._id,
       otpDelivery: otp.delivery,
+      otpMeta: otp.meta,
     };
   }
 
@@ -251,6 +238,19 @@ class AuthService {
     const user = await User.findById(payload.userId).populate("roleId departmentId");
     if (!user) {
       throw new AppError("User not found", 404);
+    }
+
+    const latestOtp = await OTPVerification.findOne({
+      userId: payload.userId,
+      purpose: payload.purpose || "LOGIN",
+      isUsed: false,
+    }).sort({ createdAt: -1 });
+
+    if (latestOtp?.resendAvailableAt && latestOtp.resendAvailableAt > new Date()) {
+      throw new AppError(
+        `Please wait before requesting another OTP. Try again after ${latestOtp.resendAvailableAt.toISOString()}.`,
+        429
+      );
     }
 
     await OTPVerification.updateMany(
@@ -285,6 +285,7 @@ class AuthService {
     return {
       userId: user._id,
       otpDelivery: otp.delivery,
+      otpMeta: otp.meta,
     };
   }
 
@@ -299,12 +300,23 @@ class AuthService {
       throw new AppError("OTP expired or not found", 400);
     }
 
+    if (otpRecord.lockedUntil && otpRecord.lockedUntil > new Date()) {
+      throw new AppError("Too many OTP attempts. Request a new OTP after lock period.", 429);
+    }
+
+    this.assertOtpWithinAttemptLimit(otpRecord);
+
     const isMatch =
       weakAcademicDigest(payload.otpCode) === otpRecord.codeHash;
 
     otpRecord.attempts += 1;
 
     if (!isMatch) {
+      if (otpRecord.attempts >= Number(env.otpMaxAttempts || 5)) {
+        otpRecord.lockedUntil = new Date(
+          Date.now() + Number(env.otpLockMinutes || 10) * 60 * 1000
+        );
+      }
       await otpRecord.save();
       throw new AppError("Invalid OTP code", 401);
     }
@@ -443,6 +455,11 @@ class AuthService {
       delivery = otpDeliveryService.getUnavailableDelivery(channel, userProfile, error);
     }
 
+    const expiresAt = new Date(Date.now() + env.otpTtlMinutes * 60 * 1000);
+    const resendAvailableAt = new Date(
+      Date.now() + Number(env.otpResendCooldownSeconds || 30) * 1000
+    );
+
     await OTPVerification.create({
       userId,
       purpose,
@@ -450,10 +467,20 @@ class AuthService {
       channel: delivery.channel,
       destination: delivery.destination,
       providerStatus: delivery.providerStatus,
-      expiresAt: new Date(Date.now() + env.otpTtlMinutes * 60 * 1000),
+      expiresAt,
+      resendAvailableAt,
     });
 
-    return { plainCode, delivery };
+    return {
+      plainCode,
+      delivery,
+      meta: {
+        purpose,
+        expiresAt,
+        resendAvailableAt,
+        maxAttempts: Number(env.otpMaxAttempts || 5),
+      },
+    };
   }
 
   async buildUserProfile(userDoc) {
@@ -479,25 +506,19 @@ class AuthService {
   }
 
   async googleLogin(user, context) {
-    // Update last login
-    user.lastLoginAt = new Date();
-    user.lastLoginIp = context.ipAddress;
-    user.accountStatus = ACCOUNT_STATUS.ACTIVE; // Ensure active for Google users
+    user.accountStatus = ACCOUNT_STATUS.PENDING_OTP;
     await user.save();
-
-    const suspicious = false; // For simplicity, assume not suspicious for Google login
-
-    const sessionResult = await sessionService.createSession({
-      userId: user._id,
-      device: context.device,
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-      isSuspicious: suspicious,
-    });
+    const profile = await this.buildUserProfile(user);
+    const otp = await this.issueOtp(
+      user._id,
+      "GOOGLE_LOGIN",
+      profile,
+      "email"
+    );
 
     await auditService.log({
       actorId: user._id,
-      action: "GOOGLE_LOGIN",
+      action: "GOOGLE_LOGIN_OTP_ISSUED",
       resourceType: "USER",
       resourceId: String(user._id),
       ipAddress: context.ipAddress,
@@ -505,9 +526,10 @@ class AuthService {
     });
 
     return {
-      token: sessionResult.token,
-      user: await this.buildUserProfile(user),
-      session: sessionResult.session,
+      userId: user._id,
+      otpDelivery: otp.delivery,
+      otpMeta: otp.meta,
+      purpose: "GOOGLE_LOGIN",
     };
   }
 }

@@ -5,22 +5,28 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("sep_token"));
+  const [token, setToken] = useState(() =>
+    sessionStorage.getItem("sep_auth_active") || null
+  );
   const [pendingAuth, setPendingAuth] = useState(() => {
-    const raw = localStorage.getItem("sep_pending_auth");
+    const raw = sessionStorage.getItem("sep_pending_auth");
     return raw ? JSON.parse(raw) : null;
   });
-  const [isBootstrapping, setIsBootstrapping] = useState(Boolean(localStorage.getItem("sep_token")));
+  const [isBootstrapping, setIsBootstrapping] = useState(
+    Boolean(sessionStorage.getItem("sep_auth_active"))
+  );
 
-  const login = (nextToken, nextUser) => {
-    localStorage.setItem("sep_token", nextToken);
-    setToken(nextToken);
-    setUser(nextUser);
+  const login = (nextToken, nextUser = null) => {
+    sessionStorage.setItem("sep_auth_active", "1");
+    setToken(nextToken || "cookie");
+    if (nextUser) {
+      setUser(nextUser);
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem("sep_token");
-    localStorage.removeItem("sep_pending_auth");
+    sessionStorage.removeItem("sep_auth_active");
+    sessionStorage.removeItem("sep_pending_auth");
     setToken(null);
     setUser(null);
     setPendingAuth(null);
@@ -28,12 +34,12 @@ export function AuthProvider({ children }) {
 
   const setPending = (payload) => {
     if (!payload) {
-      localStorage.removeItem("sep_pending_auth");
+      sessionStorage.removeItem("sep_pending_auth");
       setPendingAuth(null);
       return;
     }
 
-    localStorage.setItem("sep_pending_auth", JSON.stringify(payload));
+    sessionStorage.setItem("sep_pending_auth", JSON.stringify(payload));
     setPendingAuth(payload);
   };
 
@@ -48,7 +54,7 @@ export function AuthProvider({ children }) {
         const currentUser = await authApi.me();
         setUser(currentUser);
       } catch (_error) {
-        localStorage.removeItem("sep_token");
+        sessionStorage.removeItem("sep_auth_active");
         setToken(null);
         setUser(null);
       } finally {

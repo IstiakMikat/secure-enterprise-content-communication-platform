@@ -10,7 +10,6 @@ The codebase intentionally separates educational cryptography from application b
 
 - `backend/src/crypto/rsa/academicRSA.js`
 - `backend/src/crypto/ecc/academicECC.js`
-- `backend/src/crypto/mac/hmac.js`
 - `backend/src/crypto/hashing/academicHasher.js`
 
 These files implement assignment-focused primitives from scratch and are clearly not production-grade.
@@ -29,8 +28,8 @@ This service exposes the small set of application-facing operations:
 
 - field encryption
 - field decryption
-- MAC generation
-- MAC verification
+- asymmetric signature generation
+- asymmetric signature verification
 - key lookup
 - token randomness helpers
 
@@ -47,6 +46,6 @@ To harden the application for real production:
 
 1. Replace the academic primitives with audited crypto libraries and HSM/KMS integrations.
 2. Keep the `CryptoService` and provider interface stable.
-3. Migrate stored ciphertext and MAC formats through versioned key metadata.
+3. Migrate stored ciphertext and signature formats through versioned key metadata.
 4. Move OTP delivery, token signing, and secret storage into managed infrastructure.
 

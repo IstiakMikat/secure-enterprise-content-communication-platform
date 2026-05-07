@@ -1,4 +1,5 @@
 const { fingerprint } = require("../hashing/academicHasher");
+const { weakAcademicDigest } = require("../hashing/academicHasher");
 
 const smallPrimes = [
   101n, 103n, 107n, 109n, 113n, 127n, 131n, 137n, 139n, 149n, 151n, 157n,
@@ -85,8 +86,30 @@ const decrypt = (cipherText, privateKey) => {
   return Buffer.from(bytes).toString("utf8");
 };
 
+const messageToScalar = (message, modulus) => {
+  const digestHex = weakAcademicDigest(String(message ?? ""));
+  return BigInt(`0x${digestHex}`) % BigInt(modulus);
+};
+
+const sign = (message, privateKey) => {
+  const n = BigInt(privateKey.n);
+  const d = BigInt(privateKey.d);
+  const scalar = messageToScalar(message, n);
+  return modPow(scalar, d, n).toString();
+};
+
+const verify = (message, signature, publicKey) => {
+  const n = BigInt(publicKey.n);
+  const e = BigInt(publicKey.e);
+  const expected = messageToScalar(message, n);
+  const actual = modPow(BigInt(signature), e, n);
+  return expected === actual;
+};
+
 module.exports = {
   generateKeyPair,
   encrypt,
   decrypt,
+  sign,
+  verify,
 };

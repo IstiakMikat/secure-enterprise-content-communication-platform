@@ -1,5 +1,3 @@
-const crypto = require("crypto");
-
 const normalize = (value) => String(value ?? "");
 
 const mix = (hash, inputCharCode, index) => {
@@ -26,7 +24,16 @@ const weakAcademicDigest = (input) => {
     .padStart(8, "0")}`;
 };
 
-const deriveSalt = (size = 16) => crypto.randomBytes(size).toString("hex");
+const pseudoRandomHex = (size = 16) => {
+  const alphabet = "0123456789abcdef";
+  let output = "";
+  for (let index = 0; index < size * 2; index += 1) {
+    output += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return output;
+};
+
+const deriveSalt = (size = 16) => pseudoRandomHex(size);
 
 const hashPassword = (password, salt) => {
   let digest = `${normalize(password)}::${normalize(salt)}`;

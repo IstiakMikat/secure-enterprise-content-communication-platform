@@ -50,12 +50,17 @@ class OtpDeliveryService {
   async sendEmailOtp({ toEmail, code, purpose }) {
     const transporter = this.getMailTransporter();
     if (!transporter) {
-      console.log(`DEMO OTP for ${purpose}: ${code} sent to ${toEmail}`);
+      // For development, create a simple SMTP transporter using Ethermail or similar
+      console.log(`🔔 OTP CODE FOR ${purpose.toUpperCase()}: ${code}`);
+      console.log(`📧 Email would be sent to: ${toEmail}`);
+      console.log(`⏰ Code expires in ${env.otpTtlMinutes} minutes`);
+      
       return {
         channel: "email",
         destination: this.getMaskedEmail(toEmail),
         providerStatus: "demo_logged",
         previewCode: code,
+        message: `For development: Use code ${code} to verify your ${purpose}`,
       };
     }
 
@@ -64,7 +69,15 @@ class OtpDeliveryService {
       to: toEmail,
       subject: `Secure Enterprise OTP for ${purpose}`,
       text: `Your secure verification code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
-      html: `<p>Your secure verification code is <strong>${code}</strong>.</p><p>It expires in ${env.otpTtlMinutes} minutes.</p>`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Secure Enterprise Verification</h2>
+        <p>Your secure verification code is:</p>
+        <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+          <span style="font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 8px;">${code}</span>
+        </div>
+        <p>This code expires in ${env.otpTtlMinutes} minutes.</p>
+        <p style="color: #666; font-size: 14px;">If you didn't request this code, please ignore this email.</p>
+      </div>`,
     });
 
     return {

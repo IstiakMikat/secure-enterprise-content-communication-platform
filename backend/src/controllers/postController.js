@@ -23,12 +23,12 @@ exports.updatePost = asyncHandler(async (req, res) => {
 });
 
 exports.deletePost = asyncHandler(async (req, res) => {
-  await postService.deletePost(req.params.id);
+  await postService.deletePost(req.params.id, req.auth.user);
   return sendSuccess(res, "Post deleted successfully.");
 });
 
 exports.archivePost = asyncHandler(async (req, res) => {
-  const result = await postService.archivePost(req.params.id);
+  const result = await postService.archivePost(req.params.id, req.auth.user);
   return sendSuccess(res, "Post archived successfully.", result);
 });
 

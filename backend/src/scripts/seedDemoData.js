@@ -172,7 +172,7 @@ const run = async () => {
   ].map(async (seed) => {
     const title = await cryptoService.encryptField(seed.title, "ECC", "POST_CONTENT");
     const body = await cryptoService.encryptField(seed.body, "ECC", "POST_CONTENT");
-    const integrityMac = cryptoService.createRecordMac({
+    const integrityMac = await cryptoService.createRecordMac({
       title: title.ciphertext,
       body: body.ciphertext,
       category: seed.category,

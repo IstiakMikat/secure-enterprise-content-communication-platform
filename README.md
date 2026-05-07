@@ -115,7 +115,7 @@ The seed script creates example users, departments, sample posts, and related de
 
 ## Academic Crypto Notice
 
-This repository contains educational implementations of RSA-like arithmetic, ECC-like arithmetic, MAC, and password hashing for academic or demonstration purposes. These modules are not suitable for real production deployment.
+This repository contains educational implementations of RSA-like arithmetic, ECC-like arithmetic, signature-based integrity, and password hashing for academic or demonstration purposes. These modules are not suitable for real production deployment.
 
 For production replacement, the key seam is:
 
@@ -125,5 +125,4 @@ The academic implementations currently live in:
 
 - `backend/src/crypto/rsa/academicRSA.js`
 - `backend/src/crypto/ecc/academicECC.js`
-- `backend/src/crypto/mac/hmac.js`
 - `backend/src/crypto/hashing/academicHasher.js`

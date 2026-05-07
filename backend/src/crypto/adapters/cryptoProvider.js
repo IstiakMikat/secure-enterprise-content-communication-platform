@@ -1,7 +1,6 @@
 const env = require("../../config/env");
 const rsa = require("../rsa/academicRSA");
 const ecc = require("../ecc/academicECC");
-const { createMac, verifyMac } = require("../mac/hmac");
 const { fingerprint } = require("../hashing/academicHasher");
 
 class AcademicCryptoProvider {
@@ -24,12 +23,16 @@ class AcademicCryptoProvider {
       : ecc.decrypt(cipherText, privateKey);
   }
 
-  protectIntegrity(message) {
-    return createMac(message, env.academicMacSecret);
+  protectIntegrity(message, algorithm, privateKey) {
+    return algorithm === "RSA"
+      ? rsa.sign(message, privateKey)
+      : ecc.sign(message, privateKey);
   }
 
-  verifyIntegrity(message, mac) {
-    return verifyMac(message, env.academicMacSecret, mac);
+  verifyIntegrity(message, mac, algorithm, publicKey) {
+    return algorithm === "RSA"
+      ? rsa.verify(message, mac, publicKey)
+      : ecc.verify(message, mac, publicKey);
   }
 
   keyFingerprint(value) {

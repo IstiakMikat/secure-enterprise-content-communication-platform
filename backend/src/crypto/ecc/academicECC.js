@@ -1,4 +1,5 @@
 const { fingerprint } = require("../hashing/academicHasher");
+const { weakAcademicDigest } = require("../hashing/academicHasher");
 
 const curve = {
   p: 97n,
@@ -131,8 +132,35 @@ const decrypt = (cipherText, privateKey) => {
   return scalarToText(scalar);
 };
 
+const messageScalar = (message) =>
+  mod(BigInt(`0x${weakAcademicDigest(String(message ?? ""))}`), curve.p);
+
+const pointEqual = (left, right) => {
+  if (!left || !right) {
+    return false;
+  }
+  return left.x === right.x && left.y === right.y;
+};
+
+const sign = (message, privateKey) => {
+  const h = messageScalar(message);
+  const scalar = mod(h + BigInt(privateKey.scalar), curve.p);
+  return scalar.toString();
+};
+
+const verify = (message, signature, publicKey) => {
+  const h = messageScalar(message);
+  const signaturePoint = scalarMultiply(BigInt(signature), curve.g);
+  const hashPoint = scalarMultiply(h, curve.g);
+  const publicPoint = { x: BigInt(publicKey.x), y: BigInt(publicKey.y) };
+  const expected = pointAdd(hashPoint, publicPoint);
+  return pointEqual(signaturePoint, expected);
+};
+
 module.exports = {
   generateKeyPair,
   encrypt,
   decrypt,
+  sign,
+  verify,
 };
