@@ -22,15 +22,15 @@ const env = {
   enableBiometricChallenge:
     process.env.ENABLE_BIOMETRIC_CHALLENGE !== "false",
   otpDeliveryMode: process.env.OTP_DELIVERY_MODE || "email",
-  otpFallbackToPreview: process.env.OTP_FALLBACK_TO_PREVIEW !== "false",
+  otpFallbackToPreview: process.env.OTP_FALLBACK_TO_PREVIEW === "true",
   smsProvider: process.env.SMS_PROVIDER || "",
   smtp: {
-    host: process.env.SMTP_HOST || "",
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === "true",
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-    from: process.env.SMTP_FROM || "no-reply@enterprise.local",
+    user: process.env.SMTP_USER || "your-email@gmail.com",
+    pass: process.env.SMTP_PASS || "your-gmail-app-password",
+    from: process.env.SMTP_FROM || "security@yourcompany.com",
   },
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID || "",
