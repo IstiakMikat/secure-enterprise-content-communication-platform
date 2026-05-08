@@ -77,21 +77,21 @@ class CryptoService {
   }
 
   async createRecordMac(payload) {
-    const key = await this.getActiveKey("RSA", "POST_INTEGRITY");
+    const key = await this.getActiveKey("HMAC", "POST_INTEGRITY");
     return provider.protectIntegrity(
       JSON.stringify(payload),
-      "RSA",
+      "HMAC",
       key.encryptedPrivateKeyData
     );
   }
 
   async verifyRecordMac(payload, mac) {
-    const key = await this.getActiveKey("RSA", "POST_INTEGRITY");
+    const key = await this.getActiveKey("HMAC", "POST_INTEGRITY");
     return provider.verifyIntegrity(
       JSON.stringify(payload),
       mac,
-      "RSA",
-      key.publicKeyData
+      "HMAC",
+      key.encryptedPrivateKeyData
     );
   }
 

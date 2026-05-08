@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const cryptoKeySchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    algorithm: { type: String, enum: ["RSA", "ECC"], required: true },
+    algorithm: { type: String, enum: ["RSA", "ECC", "HMAC"], required: true },
     purpose: { type: String, required: true },
     publicKeyData: { type: mongoose.Schema.Types.Mixed, required: true },
     encryptedPrivateKeyData: { type: mongoose.Schema.Types.Mixed, required: true },
