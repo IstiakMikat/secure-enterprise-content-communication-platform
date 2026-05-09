@@ -16,14 +16,21 @@ class PostService {
   }
 
   async createPost(author, payload) {
-    const title = await cryptoService.encryptField(payload.title, "ECC", "POST_CONTENT");
-    const body = await cryptoService.encryptField(payload.body, "ECC", "POST_CONTENT");
+    const title = await cryptoService.encryptField(payload.title, "RSA", "POST_CONTENT");
+    const body = await cryptoService.encryptField(payload.body, "RSA", "POST_CONTENT");
     const integrityMac = await cryptoService.createRecordMac({
       title: title.ciphertext,
       body: body.ciphertext,
       category: payload.category,
       visibilityLevel: payload.visibilityLevel,
     });
+
+    let initialStatus = POST_STATUS.DRAFT;
+    if (author.role === ROLES.ADMIN) {
+      initialStatus = POST_STATUS.APPROVED;
+    } else if (payload.submitForApproval) {
+      initialStatus = POST_STATUS.PENDING_APPROVAL;
+    }
 
     const post = await Post.create({
       authorId: author.id,
@@ -32,9 +39,7 @@ class PostService {
       title,
       body,
       visibilityLevel: payload.visibilityLevel,
-      status: payload.submitForApproval
-        ? POST_STATUS.PENDING_APPROVAL
-        : POST_STATUS.DRAFT,
+      status: initialStatus,
       integrityMac,
       integrityStatus: INTEGRITY_STATUS.VERIFIED,
       currentVersion: 1,
@@ -110,8 +115,8 @@ class PostService {
     }
     this.ensureMutationPermission(post, actor);
 
-    const title = await cryptoService.encryptField(payload.title, "ECC", "POST_CONTENT");
-    const body = await cryptoService.encryptField(payload.body, "ECC", "POST_CONTENT");
+    const title = await cryptoService.encryptField(payload.title, "RSA", "POST_CONTENT");
+    const body = await cryptoService.encryptField(payload.body, "RSA", "POST_CONTENT");
     const integrityMac = await cryptoService.createRecordMac({
       title: title.ciphertext,
       body: body.ciphertext,
@@ -123,9 +128,13 @@ class PostService {
     post.body = body;
     post.category = payload.category || post.category;
     post.visibilityLevel = payload.visibilityLevel || post.visibilityLevel;
-    post.status = payload.submitForApproval
-      ? POST_STATUS.PENDING_APPROVAL
-      : post.status;
+    
+    if (actor.role === ROLES.ADMIN) {
+      post.status = POST_STATUS.APPROVED;
+    } else if (payload.submitForApproval) {
+      post.status = POST_STATUS.PENDING_APPROVAL;
+    }
+
     post.currentVersion += 1;
     post.integrityMac = integrityMac;
     post.integrityStatus = INTEGRITY_STATUS.VERIFIED;
@@ -166,27 +175,43 @@ class PostService {
 
   async mapDecryptedPost(post) {
     const postObj = post.toObject ? post.toObject() : post;
-    const integrityValid = await cryptoService.verifyRecordMac(
-      {
-        title: postObj.title.ciphertext,
-        body: postObj.body.ciphertext,
-        category: postObj.category,
-        visibilityLevel: postObj.visibilityLevel,
-      },
-      postObj.integrityMac
-    );
+    let integrityValid = false;
+    let title = "[Corrupted Content]";
+    let body = "[Corrupted Content]";
+    let integrityStatus = postObj.integrityStatus;
 
-    if (!integrityValid) {
-      await IntegrityAlert.create({
-        resourceType: "POST",
-        resourceId: String(postObj._id),
-        message: "Post integrity verification failed during retrieval.",
-      });
-      postObj.integrityStatus = INTEGRITY_STATUS.FAILED;
-      await Post.findByIdAndUpdate(postObj._id, {
-        integrityStatus: INTEGRITY_STATUS.FAILED,
-      });
-      throw new AppError("Integrity check failed. Post display blocked.", 409);
+    try {
+      integrityValid = await cryptoService.verifyRecordMac(
+        {
+          title: postObj.title.ciphertext,
+          body: postObj.body.ciphertext,
+          category: postObj.category,
+          visibilityLevel: postObj.visibilityLevel,
+        },
+        postObj.integrityMac
+      );
+
+      if (!integrityValid) {
+        throw new AppError("Integrity check failed. Post display blocked.", 409);
+      }
+
+      title = await cryptoService.decryptField(postObj.title, "POST_CONTENT");
+      body = await cryptoService.decryptField(postObj.body, "POST_CONTENT");
+    } catch (error) {
+      if (error.statusCode === 409 || error.message.includes("Integrity validation failed")) {
+        await IntegrityAlert.create({
+          resourceType: "POST",
+          resourceId: String(postObj._id),
+          message: error.message || "Post integrity verification failed during retrieval.",
+        });
+        integrityStatus = INTEGRITY_STATUS.FAILED;
+        await Post.findByIdAndUpdate(postObj._id, {
+          integrityStatus: INTEGRITY_STATUS.FAILED,
+        });
+        // We do not throw! We return the post marked as corrupted.
+      } else {
+        throw error;
+      }
     }
 
     return {
@@ -195,12 +220,12 @@ class PostService {
       departmentId: postObj.departmentId?._id || postObj.departmentId,
       departmentName: postObj.departmentId?.name,
       category: postObj.category,
-      title: await cryptoService.decryptField(postObj.title, "POST_CONTENT"),
-      body: await cryptoService.decryptField(postObj.body, "POST_CONTENT"),
+      title,
+      body,
       visibilityLevel: postObj.visibilityLevel,
       status: postObj.status,
       currentVersion: postObj.currentVersion,
-      integrityStatus: postObj.integrityStatus,
+      integrityStatus,
       createdAt: postObj.createdAt,
       updatedAt: postObj.updatedAt,
     };

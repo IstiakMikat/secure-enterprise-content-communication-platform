@@ -82,7 +82,7 @@ function RegisterPage() {
           <input className="input" placeholder="Employee ID" value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })} />
           <input className="input" placeholder="Username" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} />
           <input className="input" placeholder="Full Name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
-          <input className="input" placeholder="Email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+          <input className="input" placeholder="Email Address" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
           <input className="input" placeholder="Phone" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           <input className="input" placeholder="Designation" value={form.designation} onChange={(event) => setForm({ ...form, designation: event.target.value })} />
           <select className="input" value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })}>
@@ -93,8 +93,13 @@ function RegisterPage() {
               </option>
             ))}
           </select>
+          <select className="input" value={form.roleCode || "USER"} onChange={(event) => setForm({ ...form, roleCode: event.target.value })}>
+            <option value="USER">Regular User</option>
+            <option value="MANAGER">Manager</option>
+            <option value="ADMIN">Administrator</option>
+          </select>
           <input className="input" placeholder="Password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
-          <select className="input md:col-span-2" value={form.otpChannel} onChange={(event) => setForm({ ...form, otpChannel: event.target.value })}>
+          <select className="input" value={form.otpChannel} onChange={(event) => setForm({ ...form, otpChannel: event.target.value })}>
             <option value="email">Verify through email</option>
             <option value="phone">Verify through phone</option>
           </select>

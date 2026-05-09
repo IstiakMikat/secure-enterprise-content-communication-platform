@@ -1,4 +1,4 @@
-const { weakAcademicDigest, fingerprint } = require("../hashing/academicHasher");
+const { academicSHA256, fingerprint } = require("../hashing/academicHasher");
 
 const BLOCK_SIZE = 64;
 
@@ -18,7 +18,7 @@ const sign = (message, privateKey) => {
   let keyStr = privateKey.key || "";
   
   if (keyStr.length > BLOCK_SIZE) {
-    keyStr = weakAcademicDigest(keyStr);
+    keyStr = academicSHA256(keyStr);
   }
   
   let keyBytes = stringToBytes(keyStr);
@@ -35,10 +35,10 @@ const sign = (message, privateKey) => {
   }
 
   const innerStr = bytesToString(i_key_pad) + String(message);
-  const innerHashHex = weakAcademicDigest(innerStr);
+  const innerHashHex = academicSHA256(innerStr);
   
   const outerStr = bytesToString(o_key_pad) + innerHashHex;
-  const outerHashHex = weakAcademicDigest(outerStr);
+  const outerHashHex = academicSHA256(outerStr);
   
   return outerHashHex;
 };

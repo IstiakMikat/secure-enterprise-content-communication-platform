@@ -66,12 +66,21 @@ function LoginPage() {
         </div>
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <input className="input" placeholder="Employee email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
-        <input className="input" placeholder="Password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
-        <select className="input" value={form.otpChannel} onChange={(event) => setForm({ ...form, otpChannel: event.target.value })}>
-          <option value="email">Send code to email</option>
-          <option value="phone">Send code to phone</option>
-        </select>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-300">Email Address</label>
+          <input className="input" placeholder="e.g. rudmila.rudaba@gmail.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-300">Password</label>
+          <input className="input" placeholder="Password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-300">OTP Delivery</label>
+          <select className="input" value={form.otpChannel} onChange={(event) => setForm({ ...form, otpChannel: event.target.value })}>
+            <option value="email">Send code to email</option>
+            <option value="phone">Send code to phone</option>
+          </select>
+        </div>
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
         <button className="button-primary w-full" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Authenticating..." : "Continue to OTP"}

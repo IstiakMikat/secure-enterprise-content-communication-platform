@@ -13,6 +13,7 @@ export const sidebarSections = {
     { label: "Department Analytics", path: "/manager/department-analytics" },
   ],
   ADMIN: [
+    { label: "Approval Queue", path: "/manager/approvals" },
     { label: "Admin Dashboard", path: "/admin" },
     { label: "User Management", path: "/admin/users" },
     { label: "Role Management", path: "/admin/roles" },

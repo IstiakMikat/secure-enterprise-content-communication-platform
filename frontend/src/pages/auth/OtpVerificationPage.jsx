@@ -118,8 +118,7 @@ function OtpVerificationPage() {
       ) : null}
       {["demo_logged", "preview"].includes(pendingAuth?.otpDelivery?.providerStatus) ? (
         <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
-          Delivery is running in demo mode for local development.
-          {pendingAuth?.otpDelivery?.previewCode ? ` Use OTP: ${pendingAuth.otpDelivery.previewCode}` : " Check the backend terminal for the OTP code."}
+          Delivery is running in demo mode for local development. Check the backend terminal for the OTP code.
         </div>
       ) : null}
       {pendingAuth?.otpDelivery?.providerStatus === "failed" ? (

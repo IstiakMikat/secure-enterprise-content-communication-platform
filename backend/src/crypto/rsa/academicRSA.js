@@ -1,5 +1,5 @@
 const { fingerprint } = require("../hashing/academicHasher");
-const { weakAcademicDigest } = require("../hashing/academicHasher");
+const { academicSHA256 } = require("../hashing/academicHasher");
 
 const smallPrimes = [
   101n, 103n, 107n, 109n, 113n, 127n, 131n, 137n, 139n, 149n, 151n, 157n,
@@ -87,7 +87,7 @@ const decrypt = (cipherText, privateKey) => {
 };
 
 const messageToScalar = (message, modulus) => {
-  const digestHex = weakAcademicDigest(String(message ?? ""));
+  const digestHex = academicSHA256(String(message ?? ""));
   return BigInt(`0x${digestHex}`) % BigInt(modulus);
 };
 

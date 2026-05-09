@@ -4,10 +4,15 @@ const AppError = require("../utils/AppError");
 
 class ApprovalService {
   async getPending(actor) {
-    return Post.find({
+    const postService = require("./postService"); // Lazy load to prevent circular dependencies
+    const posts = await Post.find({
       status: "PENDING_APPROVAL",
       ...(actor.role === "MANAGER" ? { departmentId: actor.departmentId } : {}),
-    }).sort({ updatedAt: -1 });
+    })
+      .populate("departmentId")
+      .sort({ updatedAt: -1 });
+
+    return Promise.all(posts.map((post) => postService.mapDecryptedPost(post)));
   }
 
   async approve(postId, actor, comment) {
